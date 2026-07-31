@@ -87,8 +87,8 @@ const BANK_DETAILS = {
   branchCode: '051001',
   branchName: 'Nelspruit Branch',
   reference: 'UNI-BOOKING-REF',
-  whatsapp: '0791170930',
-  email: 'info@uni-storage.co.za'
+  whatsapp: '27791170930',
+  email: 'makutufaith@gmail.com'
 }
 
 export default function BookingPage() {
@@ -108,6 +108,9 @@ export default function BookingPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string>('')
+  const [paymentOption, setPaymentOption] = useState<'full' | 'deposit'>('deposit')
+  const [showCustomDate, setShowCustomDate] = useState(false)
+  const [customDate, setCustomDate] = useState<Date | null>(null)
   const router = useRouter()
 
   // Address-related states
@@ -130,6 +133,7 @@ export default function BookingPage() {
         const fridays = getAvailableFridays()
         setAvailableFridays(fridays)
         
+        // Default to first available Friday
         const firstAvailable = fridays.find(d => !isDateInPast(d))
         if (firstAvailable) {
           setCollectionDate(firstAvailable)
@@ -173,12 +177,17 @@ export default function BookingPage() {
     )
   }
 
-  const getTotalPrice = () => {
-    const basePrice = 450
-    const extraItemPrice = 50
+  const getStoragePrice = () => {
+    const storageFee = 300
+    const extraItemFee = 50
     const itemCount = selectedItems.length
     const extraItems = Math.max(0, itemCount - 2)
-    return basePrice + (extraItems * extraItemPrice)
+    return storageFee + (extraItems * extraItemFee)
+  }
+
+  const getTotalPrice = () => {
+    const collectionFee = 150
+    return getStoragePrice() + collectionFee
   }
 
   const isNextDisabled = (): boolean => {
@@ -186,7 +195,6 @@ export default function BookingPage() {
     if (step === 2 && !collectionDate) return true
     if (step === 2 && collectionDate && isDateInPast(collectionDate)) return true
     if (step === 3 && selectedItems.length === 0) return true
-    // Address step validation (step 4)
     if (step === 4) {
       if (addressMethod === 'residence' && !selectedResidence) return true
       if (addressMethod === 'manual' && !manualAddress) return true
@@ -203,10 +211,7 @@ export default function BookingPage() {
         throw new Error('Please select a collection date')
       }
 
-      if (collectionDate.getDay() !== 5) {
-        throw new Error('Collection must be on a Friday')
-      }
-
+      // Allow any date (no longer restricted to Fridays only)
       if (isDateInPast(collectionDate)) {
         throw new Error('Collection date cannot be in the past')
       }
@@ -230,8 +235,8 @@ export default function BookingPage() {
 
       const collectionDateStr = collectionDate.toISOString().split('T')[0]
       const totalAmount = getTotalPrice()
-      const depositAmount = totalAmount / 2
-      const balanceAmount = totalAmount / 2
+      const depositAmount = paymentOption === 'deposit' ? totalAmount / 2 : totalAmount
+      const balanceAmount = paymentOption === 'deposit' ? totalAmount / 2 : 0
       const reference = generateBookingReference()
 
       // Insert booking with address
@@ -246,11 +251,11 @@ export default function BookingPage() {
           total_amount: totalAmount,
           deposit_amount: depositAmount,
           balance_amount: balanceAmount,
-          deposit_status: 'PENDING',
+          deposit_status: paymentOption === 'full' ? 'PAID' : 'PENDING',
           balance_status: 'PENDING',
           status: 'CONFIRMED',
           payment_reference: reference,
-          deposit_paid: false,
+          deposit_paid: paymentOption === 'full',
           residence_name: residenceName || null,
           room_number: roomNumber || null,
           address_line: addressLine || manualAddress || null,
@@ -448,7 +453,7 @@ export default function BookingPage() {
             </div>
           )}
 
-          {/* Step 2: Select Collection Date */}
+          {/* Step 2: Select Collection Date - Flexible */}
           {step === 2 && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
@@ -458,88 +463,125 @@ export default function BookingPage() {
                 <div>
                   <h2 className="font-display text-xl font-semibold">Select Collection Date</h2>
                   <p className="text-sm text-muted-foreground">
-                    Collections are available on Fridays only
+                    Choose any date that works for you. Fridays are our regular collection days.
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {availableFridays.map((date, index) => {
-                  const isPast = isDateInPast(date)
-                  const isSelected = collectionDate && collectionDate.getTime() === date.getTime()
-                  const displayDate = formatDate(date)
-                  const isToday = date.toDateString() === new Date().toDateString()
-                  
-                  return (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => {
-                        if (!isPast) {
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setShowCustomDate(false)}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${
+                    !showCustomDate
+                      ? 'bg-brand text-brand-foreground shadow-sm'
+                      : 'bg-muted hover:bg-muted/70'
+                  }`}
+                >
+                  <Calendar className="size-4 inline mr-2" />
+                  Suggested Fridays
+                </button>
+                <button
+                  onClick={() => setShowCustomDate(true)}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${
+                    showCustomDate
+                      ? 'bg-brand text-brand-foreground shadow-sm'
+                      : 'bg-muted hover:bg-muted/70'
+                  }`}
+                >
+                  <Clock className="size-4 inline mr-2" />
+                  Pick Any Date
+                </button>
+              </div>
+
+              {!showCustomDate ? (
+                <div className="space-y-3">
+                  {availableFridays.map((date, index) => {
+                    const isPast = isDateInPast(date)
+                    const isSelected = collectionDate && collectionDate.getTime() === date.getTime()
+                    const displayDate = formatDate(date)
+                    const isToday = date.toDateString() === new Date().toDateString()
+                    
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => {
+                          if (!isPast) {
+                            setCollectionDate(date)
+                            setCustomDate(null)
+                          }
+                        }}
+                        disabled={isPast}
+                        className={`w-full p-4 border-2 rounded-xl transition text-left ${
+                          isSelected
+                            ? 'border-brand bg-brand/5 ring-2 ring-brand/20'
+                            : isPast
+                            ? 'border-border bg-muted/30 opacity-50 cursor-not-allowed'
+                            : 'border-border hover:border-brand/50 hover:bg-muted/30 cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-semibold flex items-center gap-2">
+                              {displayDate}
+                              {isToday && !isPast && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                                  Today
+                                </span>
+                              )}
+                              {isPast && (
+                                <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                                  Past
+                                </span>
+                              )}
+                              {isSelected && !isPast && (
+                                <span className="text-xs bg-brand/20 text-brand px-2 py-0.5 rounded-full">
+                                  Selected ✓
+                                </span>
+                              )}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {index === 0 && !isPast ? 'Next available ' : 
+                               isPast ? '⚠️ This date has passed' :
+                               `${index + 1} weeks from now`}
+                            </p>
+                          </div>
+                          {isSelected && !isPast && (
+                            <CheckCircle className="size-6 text-brand flex-shrink-0" />
+                          )}
+                          {!isSelected && !isPast && (
+                            <div className="size-6 rounded-full border-2 border-muted-foreground/20 flex-shrink-0" />
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground/80">
+                      Select Any Date
+                    </label>
+                    <input
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      value={customDate ? customDate.toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const date = new Date(e.target.value)
+                          setCustomDate(date)
                           setCollectionDate(date)
                         }
                       }}
-                      disabled={isPast}
-                      className={`w-full p-4 border-2 rounded-xl transition text-left ${
-                        isSelected
-                          ? 'border-brand bg-brand/5 ring-2 ring-brand/20'
-                          : isPast
-                          ? 'border-border bg-muted/30 opacity-50 cursor-not-allowed'
-                          : 'border-border hover:border-brand/50 hover:bg-muted/30 cursor-pointer'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-semibold flex items-center gap-2">
-                            {displayDate}
-                            {isToday && !isPast && (
-                              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                                Today
-                              </span>
-                            )}
-                            {isPast && (
-                              <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                                Past
-                              </span>
-                            )}
-                            {isSelected && !isPast && (
-                              <span className="text-xs bg-brand/20 text-brand px-2 py-0.5 rounded-full">
-                                Selected ✓
-                              </span>
-                            )}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {index === 0 && !isPast ? 'Next available ' : 
-                             isPast ? ' This date has passed' :
-                             `${index + 1} weeks from now`}
-                          </p>
-                        </div>
-                        {isSelected && !isPast && (
-                          <CheckCircle className="size-6 text-brand flex-shrink-0" />
-                        )}
-                        {!isSelected && !isPast && (
-                          <div className="size-6 rounded-full border-2 border-muted-foreground/20 flex-shrink-0" />
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="bg-brand/5 border border-brand/20 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <div className="size-8 rounded-full bg-brand/10 text-brand grid place-items-center flex-shrink-0 mt-0.5">
-                    <Clock className="size-4" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Delivery Arrangement</p>
+                      className="w-full px-4 py-2.5 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition"
+                    />
                     <p className="text-xs text-muted-foreground">
-                      Delivery date will be arranged between you and the Uni-Storage team. 
-                      We'll coordinate a convenient time for your items to be returned to you.
+                      Note: We normally collect on Fridays. We'll confirm your requested date.
                     </p>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex gap-4">
                 <button
@@ -577,7 +619,9 @@ export default function BookingPage() {
                 <div>
                   <h2 className="font-display text-xl font-semibold">What are you storing?</h2>
                   <p className="text-sm text-muted-foreground">
-                    Base package includes up to 2 items. Extra items +R50 each.
+                    <span className="font-medium">R300</span> storage for up to 2 items. 
+                    <span className="font-medium"> R50</span> per extra item. 
+                    <span className="font-medium"> R150</span> collection & delivery.
                   </p>
                 </div>
               </div>
@@ -640,33 +684,33 @@ export default function BookingPage() {
                 <div>
                   <h2 className="font-display text-xl font-semibold">Where are you staying?</h2>
                   <p className="text-sm text-muted-foreground">
-                    We'll collect your items from your residence on the selected Friday.
+                    We'll collect your items from your residence on the selected date.
                   </p>
                 </div>
               </div>
 
-              {/* Address Method Toggle */}
-              <div className="flex gap-2 bg-muted/30 rounded-lg p-1">
+              {/* Address Method Toggle - Improved visibility */}
+              <div className="grid grid-cols-2 gap-2 bg-muted/30 rounded-lg p-1">
                 <button
                   onClick={() => setAddressMethod('residence')}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${
+                  className={`py-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 ${
                     addressMethod === 'residence'
                       ? 'bg-brand text-brand-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`}
                 >
-                  <Home className="size-4 inline mr-2" />
+                  <Home className="size-4" />
                   Select Residence
                 </button>
                 <button
                   onClick={() => setAddressMethod('manual')}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition ${
+                  className={`py-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2 ${
                     addressMethod === 'manual'
                       ? 'bg-brand text-brand-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`}
                 >
-                  <Building2 className="size-4 inline mr-2" />
+                  <Building2 className="size-4" />
                   Enter Address
                 </button>
               </div>
@@ -779,11 +823,10 @@ export default function BookingPage() {
                   <ArrowRight className="size-4" />
                 </button>
               </div>
-              
             </div>
           )}
 
-          {/* Step 5: Summary */}
+          {/* Step 5: Summary with Payment Options */}
           {step === 5 && (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
@@ -834,12 +877,16 @@ export default function BookingPage() {
                 </div>
                 <div className="border-t pt-4 space-y-2">
                   <div className="flex justify-between">
-                    <span>Base Package (up to 2 items)</span>
-                    <span className="font-medium">R450.00</span>
+                    <span>Storage (up to 2 items)</span>
+                    <span className="font-medium">R300.00</span>
                   </div>
                   <div className="flex justify-between text-muted-foreground">
                     <span>Extra items ({Math.max(0, selectedItems.length - 2)} × R50)</span>
                     <span>R{Math.max(0, selectedItems.length - 2) * 50}.00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Collection & Delivery</span>
+                    <span className="font-medium">R150.00</span>
                   </div>
                   <div className="flex justify-between text-lg font-bold border-t pt-4">
                     <span>Total</span>
@@ -848,17 +895,45 @@ export default function BookingPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="border rounded-xl p-4 text-center">
-                  <p className="text-sm text-muted-foreground">50% Deposit</p>
-                  <p className="font-display text-2xl font-bold">R{getTotalPrice() / 2}.00</p>
-                  <p className="text-xs text-muted-foreground">Due to book</p>
+              {/* Payment Options - User chooses */}
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Choose Your Payment Option</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setPaymentOption('full')}
+                    className={`border-2 rounded-xl p-4 text-center transition ${
+                      paymentOption === 'full'
+                        ? 'border-brand bg-brand/5 ring-2 ring-brand/20'
+                        : 'border-border hover:border-brand/50'
+                    }`}
+                  >
+                    <p className="text-sm text-muted-foreground">Pay in Full</p>
+                    <p className="font-display text-xl font-bold text-green-600">R{getTotalPrice()}.00</p>
+                    <p className="text-xs text-muted-foreground">✓ No balance due</p>
+                  </button>
+                  <button
+                    onClick={() => setPaymentOption('deposit')}
+                    className={`border-2 rounded-xl p-4 text-center transition ${
+                      paymentOption === 'deposit'
+                        ? 'border-brand bg-brand/5 ring-2 ring-brand/20'
+                        : 'border-border hover:border-brand/50'
+                    }`}
+                  >
+                    <p className="text-sm text-muted-foreground">50% Deposit</p>
+                    <p className="font-display text-xl font-bold text-amber-600">R{getTotalPrice() / 2}.00</p>
+                    <p className="text-xs text-muted-foreground">Balance before delivery</p>
+                  </button>
                 </div>
-                <div className="border rounded-xl p-4 text-center">
-                  <p className="text-sm text-muted-foreground">50% Balance</p>
-                  <p className="font-display text-2xl font-bold">R{getTotalPrice() / 2}.00</p>
-                  <p className="text-xs text-muted-foreground">Due before delivery</p>
-                </div>
+                {paymentOption === 'deposit' && (
+                  <p className="text-xs text-center text-muted-foreground">
+                    Balance of R{getTotalPrice() / 2}.00 due before delivery
+                  </p>
+                )}
+                {paymentOption === 'full' && (
+                  <p className="text-xs text-center text-green-600">
+                     Pay once, no balance due
+                  </p>
+                )}
               </div>
 
               <div className="bg-brand/5 border border-brand/20 rounded-xl p-4">
@@ -897,7 +972,7 @@ export default function BookingPage() {
             </div>
           )}
 
-          {/* Step 6: Confirmation (payment modal shown instead) */}
+          {/* Step 6: Confirmation */}
           {step === 6 && (
             <div className="text-center py-8 space-y-6">
               <div className="relative inline-block">
@@ -910,7 +985,10 @@ export default function BookingPage() {
               <div>
                 <h2 className="font-display text-3xl font-bold">Booking Confirmed! </h2>
                 <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
-                  Your storage has been booked. Please make the deposit payment to confirm your booking.
+                  {paymentOption === 'full' 
+                    ? 'Your storage has been booked and paid in full!'
+                    : 'Your storage has been booked. Please make the deposit payment to confirm your booking.'
+                  }
                 </p>
               </div>
 
@@ -932,18 +1010,22 @@ export default function BookingPage() {
                   <span className="font-medium">{collectionDate ? formatDate(collectionDate) : 'N/A'}</span>
                 </div>
                 <div className="flex justify-between text-sm border-t pt-2">
-                  <span className="text-muted-foreground">Deposit Due</span>
-                  <span className="font-medium text-amber-600">R{bookingDeposit}.00</span>
+                  <span className="text-muted-foreground">Payment</span>
+                  <span className={`font-medium ${paymentOption === 'full' ? 'text-green-600' : 'text-amber-600'}`}>
+                    {paymentOption === 'full' ? 'Paid in Full' : `Deposit Due: R${bookingDeposit}.00`}
+                  </span>
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowPaymentModal(true)}
-                className="w-full max-w-sm mx-auto bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
-              >
-                <Building2 className="size-5" />
-                View Payment Details
-              </button>
+              {paymentOption === 'deposit' && (
+                <button
+                  onClick={() => setShowPaymentModal(true)}
+                  className="w-full max-w-sm mx-auto bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
+                >
+                  <Building2 className="size-5" />
+                  View Payment Details
+                </button>
+              )}
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
@@ -990,106 +1072,120 @@ export default function BookingPage() {
               </div>
               <h2 className="font-display text-2xl font-bold">Payment Details</h2>
               <p className="text-muted-foreground text-sm mt-1">
-                Please make a 50% deposit of <span className="font-bold text-brand">R{bookingDeposit}.00</span> to confirm your booking
+                {paymentOption === 'deposit' 
+                  ? `Please make a 50% deposit of R${bookingDeposit}.00 to confirm your booking`
+                  : 'Payment confirmed! Thank you for paying in full.'
+                }
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Reference: <span className="font-mono font-medium">{bookingReference}</span>
               </p>
             </div>
 
-            <div className="bg-muted/30 rounded-xl p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-background rounded-lg p-4 border">
-                  <p className="text-xs text-muted-foreground">Bank Name</p>
-                  <p className="font-semibold">{BANK_DETAILS.bankName}</p>
+            {paymentOption === 'deposit' ? (
+              <>
+                <div className="bg-muted/30 rounded-xl p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-background rounded-lg p-4 border">
+                      <p className="text-xs text-muted-foreground">Bank Name</p>
+                      <p className="font-semibold">{BANK_DETAILS.bankName}</p>
+                    </div>
+                    <div className="bg-background rounded-lg p-4 border">
+                      <p className="text-xs text-muted-foreground">Account Holder</p>
+                      <p className="font-semibold">{BANK_DETAILS.accountName}</p>
+                    </div>
+                    <div className="bg-background rounded-lg p-4 border">
+                      <p className="text-xs text-muted-foreground">Account Number</p>
+                      <div className="flex items-center justify-between">
+                        <p className="font-mono font-semibold">{BANK_DETAILS.accountNumber}</p>
+                        <button
+                          onClick={() => copyToClipboard(BANK_DETAILS.accountNumber, 'account')}
+                          className="text-brand hover:text-brand/80 transition"
+                        >
+                          {copied === 'account' ? <Check className="size-4" /> : <Copy className="size-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-background rounded-lg p-4 border">
+                      <p className="text-xs text-muted-foreground">Branch Code</p>
+                      <div className="flex items-center justify-between">
+                        <p className="font-mono font-semibold">{BANK_DETAILS.branchCode}</p>
+                        <button
+                          onClick={() => copyToClipboard(BANK_DETAILS.branchCode, 'branch')}
+                          className="text-brand hover:text-brand/80 transition"
+                        >
+                          {copied === 'branch' ? <Check className="size-4" /> : <Copy className="size-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-background rounded-lg p-4 border md:col-span-2">
+                      <p className="text-xs text-muted-foreground">Branch Name</p>
+                      <p className="font-semibold">{BANK_DETAILS.branchName}</p>
+                    </div>
+                    <div className="bg-background rounded-lg p-4 border md:col-span-2">
+                      <p className="text-xs text-muted-foreground">Payment Reference</p>
+                      <div className="flex items-center justify-between">
+                        <p className="font-mono font-semibold text-brand">{bookingReference}</p>
+                        <button
+                          onClick={() => copyToClipboard(bookingReference, 'reference')}
+                          className="text-brand hover:text-brand/80 transition"
+                        >
+                          {copied === 'reference' ? <Check className="size-4" /> : <Copy className="size-4" />}
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Please use this reference when making the payment</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-background rounded-lg p-4 border">
-                  <p className="text-xs text-muted-foreground">Account Holder</p>
-                  <p className="font-semibold">{BANK_DETAILS.accountName}</p>
-                </div>
-                <div className="bg-background rounded-lg p-4 border">
-                  <p className="text-xs text-muted-foreground">Account Number</p>
-                  <div className="flex items-center justify-between">
-                    <p className="font-mono font-semibold">{BANK_DETAILS.accountNumber}</p>
+
+                <div className="mt-6 space-y-3">
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+                    <p className="font-semibold"> Proof of Payment Required:</p>
+                    <ul className="list-disc list-inside mt-1 space-y-1 text-xs">
+                      <li>Send exactly <span className="font-bold">R{bookingDeposit}.00</span></li>
+                      <li>Use the reference <span className="font-mono font-bold">{bookingReference}</span></li>
+                      <li><strong>Send proof of payment to WhatsApp: 0791170930</strong></li>
+                      <li>Your booking will be confirmed once we verify the payment</li>
+                    </ul>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <button
-                      onClick={() => copyToClipboard(BANK_DETAILS.accountNumber, 'account')}
-                      className="text-brand hover:text-brand/80 transition"
+                      onClick={handlePaymentConfirmed}
+                      className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-2"
                     >
-                      {copied === 'account' ? <Check className="size-4" /> : <Copy className="size-4" />}
+                      <CheckCircle className="size-5" />
+                      I've Made the Payment
+                    </button>
+                    <button
+                      onClick={() => {
+                        const whatsappNumber = BANK_DETAILS.whatsapp
+                        const message = `Hello Uni-Storage, I've made a deposit of R${bookingDeposit} for booking ${bookingReference}`
+                        window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank')
+                      }}
+                      className="flex-1 bg-green-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-600 transition flex items-center justify-center gap-2"
+                    >
+                      <Phone className="size-5" />
+                      Contact via WhatsApp
                     </button>
                   </div>
                 </div>
-                <div className="bg-background rounded-lg p-4 border">
-                  <p className="text-xs text-muted-foreground">Branch Code</p>
-                  <div className="flex items-center justify-between">
-                    <p className="font-mono font-semibold">{BANK_DETAILS.branchCode}</p>
-                    <button
-                      onClick={() => copyToClipboard(BANK_DETAILS.branchCode, 'branch')}
-                      className="text-brand hover:text-brand/80 transition"
-                    >
-                      {copied === 'branch' ? <Check className="size-4" /> : <Copy className="size-4" />}
-                    </button>
-                  </div>
-                </div>
-                <div className="bg-background rounded-lg p-4 border md:col-span-2">
-                  <p className="text-xs text-muted-foreground">Branch Name</p>
-                  <p className="font-semibold">{BANK_DETAILS.branchName}</p>
-                </div>
-                <div className="bg-background rounded-lg p-4 border md:col-span-2">
-                  <p className="text-xs text-muted-foreground">Payment Reference</p>
-                  <div className="flex items-center justify-between">
-                    <p className="font-mono font-semibold text-brand">{bookingReference}</p>
-                    <button
-                      onClick={() => copyToClipboard(bookingReference, 'reference')}
-                      className="text-brand hover:text-brand/80 transition"
-                    >
-                      {copied === 'reference' ? <Check className="size-4" /> : <Copy className="size-4" />}
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">Please use this reference when making the payment</p>
-                </div>
+              </>
+            ) : (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
+                <CheckCircle className="size-12 text-green-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-green-700">Payment Complete!</h3>
+                <p className="text-green-600 mt-2">Your booking is fully paid and confirmed.</p>
+                <p className="text-sm text-green-500 mt-1">Reference: {bookingReference}</p>
               </div>
-            </div>
+            )}
 
-            <div className="mt-6 space-y-3">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                <p className="font-semibold"> Important:</p>
-                <ul className="list-disc list-inside mt-1 space-y-1 text-xs">
-                  <li>Send exactly <span className="font-bold">R{bookingDeposit}.00</span> (50% deposit)</li>
-                  <li>Use the reference <span className="font-mono font-bold">{bookingReference}</span></li>
-                  <li>After payment, click "I've Made the Payment" below</li>
-                  <li>Your booking will be confirmed once we verify the payment</li>
-                </ul>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={handlePaymentConfirmed}
-                  className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="size-5" />
-                  I've Made the Payment
-                </button>
-                <button
-                  onClick={() => {
-                    const whatsappNumber = BANK_DETAILS.whatsapp
-                    const message = `Hello Uni-Storage, I've made a deposit of R${bookingDeposit} for booking ${bookingReference}`
-                    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank')
-                  }}
-                  className="flex-1 bg-green-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-600 transition flex items-center justify-center gap-2"
-                >
-                  <Phone className="size-5" />
-                  Contact via WhatsApp
-                </button>
-              </div>
-
-              <button
-                onClick={() => setShowPaymentModal(false)}
-                className="w-full border border-border px-6 py-2.5 rounded-lg font-medium hover:bg-muted/50 transition text-sm"
-              >
-                Close
-              </button>
-            </div>
+            <button
+              onClick={() => setShowPaymentModal(false)}
+              className="w-full mt-4 border border-border px-6 py-2.5 rounded-lg font-medium hover:bg-muted/50 transition text-sm"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
