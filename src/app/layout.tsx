@@ -1,7 +1,6 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter, Sora } from 'next/font/google'
-import { Navbar } from '@/components/Navbar'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -24,6 +23,11 @@ export const metadata: Metadata = {
     shortcut: '/images/logo.jpg',
     apple: '/images/logo.jpg',
   },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
 }
 
 export default function RootLayout({
@@ -32,12 +36,9 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${sora.variable}`}>
+    <html lang="en" className={`${inter.variable} ${sora.variable} smooth-scroll`}>
       <body className="bg-background text-foreground font-sans antialiased">
-        <Navbar />
-        <main className="min-h-screen">
-          {children}
-        </main>
+        {children}
       </body>
     </html>
   )

@@ -36,10 +36,6 @@ interface Booking {
   balance_status: string
   status: string
   created_at: string
-  payment_reference?: string
-  payment_date?: string
-  deposit_paid?: boolean
-  payment_method?: string
 }
 
 export default function DashboardPage() {
@@ -64,7 +60,6 @@ export default function DashboardPage() {
       setError(null)
       setIsRetrying(true)
       
-      // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       
       if (userError) throw userError
@@ -74,7 +69,6 @@ export default function DashboardPage() {
         return
       }
       
-      // Check if user has a profile
       let profileData = null
       let profileError = null
       
@@ -91,7 +85,6 @@ export default function DashboardPage() {
         console.error('Profile fetch error:', err)
       }
       
-      // If profile doesn't exist, create one
       if (!profileData || profileError) {
         console.log('Creating profile for user:', user.id)
         
@@ -124,13 +117,11 @@ export default function DashboardPage() {
       
       setProfile(profileData)
       
-      // Check if admin and redirect if needed
       if (profileData?.role === 'admin') {
         router.push('/admin')
         return
       }
       
-      // Set user with profile data
       setUser({
         ...user,
         user_metadata: {
@@ -139,31 +130,24 @@ export default function DashboardPage() {
         }
       })
       
-      // Fetch bookings (excluding cancelled)
       const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
         .select('*')
         .eq('user_id', user.id)
-        .neq('status', 'CANCELLED') //  Exclude cancelled bookings
+        .neq('status', 'CANCELLED')
         .order('created_at', { ascending: false })
       
       if (bookingsError) throw bookingsError
       
       setBookings(bookingsData || [])
       
-      //  Calculate stats from active bookings only (non-cancelled)
       const activeBookings = bookingsData?.filter(b => b.status !== 'DELIVERED' && b.status !== 'CANCELLED').length || 0
-      
-      //  Total items from active bookings only (excluding cancelled)
       const totalItems = bookingsData?.reduce((sum, b) => {
-        // Only count items from non-cancelled bookings
         if (b.status !== 'CANCELLED') {
           return sum + b.total_items
         }
         return sum
       }, 0) || 0
-      
-      // Total balance from active bookings only (excluding cancelled)
       const totalBalance = bookingsData?.reduce((sum, b) => {
         if (b.balance_status === 'PENDING' && b.status !== 'CANCELLED') {
           return sum + b.balance_amount
@@ -219,7 +203,6 @@ export default function DashboardPage() {
 
       if (error) throw error
 
-      // Refresh bookings (excluding cancelled)
       const { data: bookingsData, error: fetchError } = await supabase
         .from('bookings')
         .select('*')
@@ -230,28 +213,6 @@ export default function DashboardPage() {
       if (fetchError) throw fetchError
       
       setBookings(bookingsData || [])
-      
-      // Recalculate stats
-      const activeBookings = bookingsData?.filter(b => b.status !== 'DELIVERED' && b.status !== 'CANCELLED').length || 0
-      const totalItems = bookingsData?.reduce((sum, b) => {
-        if (b.status !== 'CANCELLED') {
-          return sum + b.total_items
-        }
-        return sum
-      }, 0) || 0
-      const totalBalance = bookingsData?.reduce((sum, b) => {
-        if (b.balance_status === 'PENDING' && b.status !== 'CANCELLED') {
-          return sum + b.balance_amount
-        }
-        return sum
-      }, 0) || 0
-      
-      setBookingStats({
-        active: activeBookings,
-        items: totalItems,
-        balance: totalBalance
-      })
-      
       setShowCancelModal(false)
       setBookingToCancel(null)
       
@@ -277,18 +238,6 @@ export default function DashboardPage() {
     if (campus === 'TUT Nelspruit') return 'TUT Nelspruit'
     return campus
   }
-
-  function getPaymentStatus(booking: Booking) {
-  if (booking.deposit_paid && booking.balance_status === 'PAID') {
-    return { label: 'Fully Paid', color: 'text-green-600 bg-green-100' }
-  } else if (booking.deposit_paid) {
-    return { label: 'Deposit Paid (50%)', color: 'text-blue-600 bg-blue-100' }
-  } else {
-    return { label: 'Pending Payment', color: 'text-amber-600 bg-amber-100' }
-  }
-}
-
-
 
   const handleRetry = () => {
     setLoading(true)
@@ -345,6 +294,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Dashboard Header */}
       <header className="border-b bg-card/50 backdrop-blur sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link 
@@ -475,7 +425,6 @@ export default function DashboardPage() {
               {bookings.filter(b => b.status !== 'CANCELLED').slice(0, 3).map((booking) => {
                 const status = getStatusBadge(booking.status)
                 const StatusIcon = status.icon
-                const paymentStatus = getPaymentStatus(booking)
                 
                 return (
                   <div key={booking.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/30 transition gap-4">
@@ -521,20 +470,6 @@ export default function DashboardPage() {
                         </>
                       )}
                     </div>
-                    <div className="mt-2 flex items-center gap-2">
-  <span className={`text-xs px-2 py-0.5 rounded-full ${getPaymentStatus(booking).color}`}>
-    {getPaymentStatus(booking).label}
-  </span>
-  {/* <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${paymentStatus.color}`}>
-  {paymentStatus.label}
-</span> */}
-  {booking.payment_reference && booking.deposit_paid && (
-    <span className="text-xs text-muted-foreground">
-      Ref: {booking.payment_reference}
-    </span>
-    
-  )}
-</div>
                   </div>
                 )
               })}
@@ -563,9 +498,7 @@ export default function DashboardPage() {
               </Link>
             </div>
           </div>
-
         )}
-        
       </main>
 
       {/* Logout Confirmation Modal */}
