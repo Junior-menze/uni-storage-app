@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { 
   Mail, Lock, User, ArrowRight, Loader2, 
-  CheckCircle, X, Sparkles, KeyRound, ArrowLeft
+  CheckCircle, X, Sparkles, KeyRound, ArrowLeft,
+  Eye, EyeOff, Phone, GraduationCap, MapPin
 } from 'lucide-react'
 
 export default function AuthPage() {
@@ -29,6 +30,7 @@ export default function AuthPage() {
   const [resetLoading, setResetLoading] = useState(false)
   const [emailExists, setEmailExists] = useState<boolean | null>(null)
   const [checkingEmail, setCheckingEmail] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   // Helper function to redirect based on role
   async function redirectBasedOnRole(userId: string) {
@@ -60,32 +62,18 @@ export default function AuthPage() {
   async function checkEmailExists(email: string): Promise<boolean> {
     try {
       setCheckingEmail(true)
-      // Try to get user by email from auth
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', email)
-        .maybeSingle()
       
-      // Alternative: Use the admin API to check if user exists
-      // Since we can't directly query auth.users, we'll try a different approach
-      
-      // Try to sign in with a dummy password to check if user exists
-      // This is a workaround since we can't directly query auth.users
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: email,
         password: 'dummy_password_that_will_fail'
       })
       
-      // If the error is "Invalid login credentials", the user exists
-      // If the error is "User not found", the user doesn't exist
       if (signInError?.message?.includes('Invalid login credentials')) {
         return true
       } else if (signInError?.message?.includes('User not found')) {
         return false
       }
       
-      // Default to true if we can't determine
       return true
     } catch (error) {
       console.error('Error checking email:', error)
@@ -115,7 +103,15 @@ export default function AuthPage() {
             },
           },
         })
-        if (signUpError) throw signUpError
+        if (signUpError) {
+          if (signUpError.message?.includes('rate limit')) {
+            setError('Too many signup attempts. Please wait a few minutes and try again.')
+          } else {
+            throw signUpError
+          }
+          setLoading(false)
+          return
+        }
         
         if (data.user) {
           const { error: profileError } = await supabase
@@ -125,7 +121,7 @@ export default function AuthPage() {
               full_name: fullName,
               student_number: studentNumber || `STU${Date.now().toString().slice(-6)}`,
               campus: campus,
-              phone_number: phoneNumber || 'Not provided',
+              phone_number: phoneNumber, // Required field
               role: 'student'
             })
           
@@ -186,7 +182,6 @@ export default function AuthPage() {
     setEmailExists(null)
 
     try {
-      // First, check if the email exists in the system
       const exists = await checkEmailExists(resetEmail)
       setEmailExists(exists)
 
@@ -196,9 +191,11 @@ export default function AuthPage() {
         return
       }
 
-      // If email exists, send reset link
+      // Use the production URL for the redirect
+      const redirectUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+      
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${redirectUrl}/auth/reset-password`,
       })
       
       if (error) throw error
@@ -206,7 +203,6 @@ export default function AuthPage() {
       setResetSent(true)
       setError('')
       
-      // Auto close after 3 seconds
       setTimeout(() => {
         setShowForgotPassword(false)
         setResetSent(false)
@@ -220,7 +216,6 @@ export default function AuthPage() {
     }
   }
 
-  // Handle email input change with debounced validation
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setResetEmail(e.target.value)
     setEmailExists(null)
@@ -236,7 +231,6 @@ export default function AuthPage() {
         </div>
 
         <div className="w-full max-w-md relative z-10">
-          {/* Logo */}
           <Link href="/" className="flex items-center gap-2 justify-center mb-8 group">
             <div className="relative size-10 rounded-xl overflow-hidden shadow-lg shadow-brand/20 group-hover:scale-105 transition-transform flex-shrink-0">
               <Image
@@ -382,7 +376,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen gradient-hero flex items-center justify-center px-4 py-12">
-      {/* Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand/5 rounded-full blur-3xl"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-brand-2/5 rounded-full blur-3xl"></div>
@@ -420,9 +413,8 @@ export default function AuthPage() {
           
           {/* Error Display */}
           {error && (
-            <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3 rounded-lg mb-4 text-sm flex items-start gap-2">
-              <span className="mt-0.5"></span>
-              <span>{error}</span>
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive p-3 rounded-lg mb-4 text-sm">
+              {error}
             </div>
           )}
 
@@ -501,7 +493,7 @@ export default function AuthPage() {
                     Student Number *
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <input
                       type="text"
                       required
@@ -518,7 +510,7 @@ export default function AuthPage() {
                     Phone Number *
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <input
                       type="tel"
                       required
@@ -535,11 +527,12 @@ export default function AuthPage() {
                     Campus *
                   </label>
                   <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                     <select
                       required
                       value={campus}
                       onChange={(e) => setCampus(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition appearance-none"
+                      className="w-full pl-10 pr-4 py-2.5 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition appearance-none"
                     >
                       <option value="UMP">University of Mpumalanga</option>
                       <option value="TUT Nelspruit">TUT Nelspruit</option>
@@ -573,14 +566,21 @@ export default function AuthPage() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
                   minLength={6}
                   placeholder={mode === 'signin' ? 'Enter your password' : 'Create a password (min 6 chars)'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition"
+                  className="w-full pl-10 pr-12 py-2.5 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
               </div>
             </div>
 
@@ -683,11 +683,11 @@ export default function AuthPage() {
 
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 mb-2">
-                <h2 className="font-display text-2xl font-bold">Account Created! </h2>
+                <h2 className="font-display text-2xl font-bold">Account Created! 🎉</h2>
               </div>
               
               <p className="text-muted-foreground text-sm mb-2">
-                We've sent a confirmation email to:
+                {`We've sent a confirmation email to:`}
               </p>
               <p className="font-medium text-foreground bg-muted/30 px-4 py-2 rounded-lg inline-block mb-4">
                 {userEmail}

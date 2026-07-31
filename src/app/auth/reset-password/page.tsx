@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Lock, Loader2, CheckCircle, ArrowLeft, X } from 'lucide-react'
+import { Lock, Loader2, CheckCircle, ArrowLeft, X, Eye, EyeOff } from 'lucide-react'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -14,6 +14,23 @@ export default function ResetPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [isValidToken, setIsValidToken] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    // Check if the user has a valid session (they clicked the reset link)
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setError('Invalid or expired reset link. Please request a new one.')
+        setIsValidToken(false)
+      } else {
+        setIsValidToken(true)
+      }
+    }
+    checkSession()
+  }, [])
 
   async function handleResetPassword(e: React.FormEvent) {
     e.preventDefault()
@@ -47,6 +64,46 @@ export default function ResetPasswordPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (isValidToken === false) {
+    return (
+      <div className="min-h-screen gradient-hero flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md relative z-10">
+          <Link href="/" className="flex items-center gap-2 justify-center mb-8 group">
+            <div className="relative size-10 rounded-xl overflow-hidden shadow-lg shadow-brand/20 group-hover:scale-105 transition-transform flex-shrink-0">
+              <Image
+                src="/images/logo.jpg"
+                alt="Uni-Storage Logo"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="font-display text-xl font-bold">Uni-Storage</span>
+              <p className="text-[10px] text-muted-foreground">Your Belongings, Safely Stored</p>
+            </div>
+          </Link>
+
+          <div className="bg-card/80 backdrop-blur-sm rounded-2xl shadow-2xl border p-8">
+            <div className="text-center">
+              <div className="size-16 rounded-full bg-red-500/10 border-2 border-red-500 flex items-center justify-center mx-auto mb-4">
+                <X className="size-8 text-red-500" />
+              </div>
+              <h1 className="font-display text-2xl font-bold text-red-600 mb-2">Invalid Link</h1>
+              <p className="text-muted-foreground text-sm">{error}</p>
+              <Link
+                href="/auth"
+                className="inline-block mt-4 bg-brand text-brand-foreground px-6 py-2 rounded-lg font-medium hover:opacity-90 transition"
+              >
+                Back to Sign In
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -115,14 +172,21 @@ export default function ResetPasswordPage() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     minLength={6}
                     placeholder="Enter new password (min 6 chars)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition"
+                    className="w-full pl-10 pr-12 py-2.5 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -133,13 +197,20 @@ export default function ResetPasswordPage() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <input
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     required
                     placeholder="Confirm your new password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition"
+                    className="w-full pl-10 pr-12 py-2.5 bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand transition"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+                  >
+                    {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
                 </div>
               </div>
 

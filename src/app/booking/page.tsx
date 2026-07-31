@@ -779,6 +779,7 @@ export default function BookingPage() {
                   <ArrowRight className="size-4" />
                 </button>
               </div>
+              
             </div>
           )}
 

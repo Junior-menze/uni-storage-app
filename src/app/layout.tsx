@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter, Sora } from 'next/font/google'
+import { Navbar } from '@/components/Navbar'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -17,7 +18,7 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title: 'Uni-Storage',
-  description: 'Your Belongings, Safely Stored. Affordable storage for UMP and TUT Nelspruit students.',
+  description: 'Student storage and logistics for UMP & TUT Nelspruit. Affordable storage with flexible collection.',
   icons: {
     icon: '/images/logo.jpg',
     shortcut: '/images/logo.jpg',
@@ -33,7 +34,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${sora.variable}`}>
       <body className="bg-background text-foreground font-sans antialiased">
-        {children}
+        <Navbar />
+        <main className="min-h-screen">
+          {children}
+        </main>
       </body>
     </html>
   )
