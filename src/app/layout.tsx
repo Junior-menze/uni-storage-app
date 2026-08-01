@@ -1,5 +1,5 @@
 import './globals.css'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter, Sora } from 'next/font/google'
 
 const inter = Inter({
@@ -23,11 +23,12 @@ export const metadata: Metadata = {
     shortcut: '/images/logo.jpg',
     apple: '/images/logo.jpg',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({
@@ -36,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${sora.variable} smooth-scroll`}>
+    <html lang="en" className={`${inter.variable} ${sora.variable}`}>
       <body className="bg-background text-foreground font-sans antialiased">
         {children}
       </body>

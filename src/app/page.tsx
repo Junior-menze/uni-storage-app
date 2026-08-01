@@ -55,11 +55,12 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <Navbar />
       
-      {/* Hero Section */}
-      <section className="gradient-hero section-padding">
+      {/* Hero Section - Now First (Visible on all devices) */}
+      <section id="hero" className="gradient-hero section-padding">
         <div className="container-custom">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-            <div className="order-2 lg:order-1">
+            {/* Hero Content - Always first on mobile */}
+            <div className="order-1">
               <div className="inline-flex items-center gap-1 bg-secondary px-3 py-1 rounded-full text-sm font-medium mb-4">
                 <PackageOpen className="size-3.5" /> Built for UMP & TUT Nelspruit
               </div>
@@ -93,10 +94,11 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Price Calculator - Responsive */}
-            <div className="order-1 lg:order-2">
+            {/* Price Calculator - Second on mobile, right on desktop */}
+            <div className="order-2">
               <div id="pricing" className="bg-card rounded-2xl shadow-xl border p-4 sm:p-6">
                 <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                  <Sparkles className="size-5 text-primary" />
                   Live price calculator
                 </h2>
                 <p className="text-sm text-muted-foreground mb-4 sm:mb-6">See exactly what you'll pay. No hidden fees.</p>
@@ -166,8 +168,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How It Works - Responsive */}
-      <section id="how" className="section-padding bg-muted/20">
+      {/* How It Works Section */}
+      <section id="how-it-works" className="section-padding bg-muted/20">
         <div className="container-custom">
           <h2 className="heading-2 text-center">Three easy steps</h2>
           <p className="text-center text-muted-foreground mt-3 max-w-xl mx-auto text-sm sm:text-base">
@@ -194,7 +196,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Campuses - Responsive */}
+      {/* Campuses Section */}
       <section className="section-padding border-y">
         <div className="container-custom">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -213,7 +215,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA - Responsive */}
+      {/* CTA Section */}
       <section className="section-padding">
         <div className="container-custom text-center">
           <h2 className="heading-2">Ready to head home?</h2>
@@ -227,7 +229,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer - Responsive */}
+      {/* Footer */}
       <footer className="border-t py-8 sm:py-10 text-sm text-muted-foreground">
         <div className="container-custom flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -253,7 +255,7 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* WhatsApp Floating Button - Responsive */}
+      {/* WhatsApp Floating Button */}
       <a
         href="https://wa.me/27791170930?text=Hi%20Uni-Storage%20Team%2C%20I%20have%20a%20question%20about%20your%20storage%20service."
         target="_blank"

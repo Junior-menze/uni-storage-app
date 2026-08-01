@@ -84,9 +84,9 @@ export function Navbar() {
               <Link href="/#pricing" className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition">
                 Pricing
               </Link>
-              <Link href="/#how-it-works" className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition">
+            <Link href="/#how-it-works" className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition">
                 How it works
-              </Link>
+            </Link>
               
               {user ? (
                 <>

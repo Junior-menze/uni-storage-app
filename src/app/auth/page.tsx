@@ -175,46 +175,46 @@ export default function AuthPage() {
     }
   }
 
-  async function handleForgotPassword(e: React.FormEvent) {
-    e.preventDefault()
-    setResetLoading(true)
-    setError('')
-    setEmailExists(null)
+async function handleForgotPassword(e: React.FormEvent) {
+  e.preventDefault()
+  setResetLoading(true)
+  setError('')
+  setEmailExists(null)
 
-    try {
-      const exists = await checkEmailExists(resetEmail)
-      setEmailExists(exists)
+  try {
+    const exists = await checkEmailExists(resetEmail)
+    setEmailExists(exists)
 
-      if (!exists) {
-        setError('No account found with this email address. Please check and try again.')
-        setResetLoading(false)
-        return
-      }
-
-      // Use the production URL for the redirect
-      const redirectUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${redirectUrl}/auth/reset-password`,
-      })
-      
-      if (error) throw error
-      
-      setResetSent(true)
-      setError('')
-      
-      setTimeout(() => {
-        setShowForgotPassword(false)
-        setResetSent(false)
-        setResetEmail('')
-        setEmailExists(null)
-      }, 3000)
-    } catch (err: any) {
-      setError(err.message || 'Failed to send reset link. Please try again.')
-    } finally {
+    if (!exists) {
+      setError('No account found with this email address. Please check and try again.')
       setResetLoading(false)
+      return
     }
+
+    // Use the production URL from environment variables
+    const redirectUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://uni-storage-app.vercel.app'
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${redirectUrl}/auth/reset-password`,
+    })
+    
+    if (error) throw error
+    
+    setResetSent(true)
+    setError('')
+    
+    setTimeout(() => {
+      setShowForgotPassword(false)
+      setResetSent(false)
+      setResetEmail('')
+      setEmailExists(null)
+    }, 3000)
+  } catch (err: any) {
+    setError(err.message || 'Failed to send reset link. Please try again.')
+  } finally {
+    setResetLoading(false)
   }
+}
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setResetEmail(e.target.value)

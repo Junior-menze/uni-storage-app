@@ -111,6 +111,7 @@ export default function BookingPage() {
   const [paymentOption, setPaymentOption] = useState<'full' | 'deposit'>('deposit')
   const [showCustomDate, setShowCustomDate] = useState(false)
   const [customDate, setCustomDate] = useState<Date | null>(null)
+  const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false)
   const router = useRouter()
 
   // Address-related states
@@ -211,7 +212,6 @@ export default function BookingPage() {
         throw new Error('Please select a collection date')
       }
 
-      // Allow any date (no longer restricted to Fridays only)
       if (isDateInPast(collectionDate)) {
         throw new Error('Collection date cannot be in the past')
       }
@@ -284,7 +284,7 @@ export default function BookingPage() {
       setBookingTotal(totalAmount)
       setBookingDeposit(depositAmount)
       
-      // Show payment modal
+      // Show payment modal for BOTH payment options
       setShowPaymentModal(true)
       setStep(6)
       
@@ -305,6 +305,7 @@ export default function BookingPage() {
 
   const handlePaymentConfirmed = async () => {
     try {
+      setIsPaymentConfirmed(true)
       const { error } = await supabase
         .from('bookings')
         .update({
@@ -317,11 +318,14 @@ export default function BookingPage() {
 
       if (error) throw error
 
-      setShowPaymentModal(false)
-      router.push('/dashboard')
+      setTimeout(() => {
+        setShowPaymentModal(false)
+        router.push('/dashboard')
+      }, 1500)
     } catch (error) {
       console.error('Error updating payment status:', error)
       alert('Failed to update payment status. Please contact support.')
+      setIsPaymentConfirmed(false)
     }
   }
 
@@ -536,13 +540,13 @@ export default function BookingPage() {
                               )}
                               {isSelected && !isPast && (
                                 <span className="text-xs bg-brand/20 text-brand px-2 py-0.5 rounded-full">
-                                  Selected ✓
+                                  Selected 
                                 </span>
                               )}
                             </h3>
                             <p className="text-sm text-muted-foreground">
                               {index === 0 && !isPast ? 'Next available ' : 
-                               isPast ? '⚠️ This date has passed' :
+                               isPast ? ' This date has passed' :
                                `${index + 1} weeks from now`}
                             </p>
                           </div>
@@ -689,7 +693,6 @@ export default function BookingPage() {
                 </div>
               </div>
 
-              {/* Address Method Toggle - Improved visibility */}
               <div className="grid grid-cols-2 gap-2 bg-muted/30 rounded-lg p-1">
                 <button
                   onClick={() => setAddressMethod('residence')}
@@ -715,7 +718,6 @@ export default function BookingPage() {
                 </button>
               </div>
 
-              {/* Residence Selection */}
               {addressMethod === 'residence' && (
                 <div className="space-y-4">
                   <div className="relative">
@@ -760,7 +762,6 @@ export default function BookingPage() {
                     )}
                   </div>
 
-                  {/* Room Number */}
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium text-foreground/80">
                       Room / Unit Number (Optional)
@@ -776,7 +777,6 @@ export default function BookingPage() {
                 </div>
               )}
 
-              {/* Manual Address Entry */}
               {addressMethod === 'manual' && (
                 <div className="space-y-4">
                   <div className="space-y-1.5">
@@ -831,7 +831,7 @@ export default function BookingPage() {
             <div className="space-y-6">
               <div className="flex items-center gap-3">
                 <div className="size-10 rounded-lg bg-brand/10 text-brand grid place-items-center">
-                  <Sparkles className="size-5" />
+                  
                 </div>
                 <div>
                   <h2 className="font-display text-xl font-semibold">Booking Summary</h2>
@@ -895,7 +895,6 @@ export default function BookingPage() {
                 </div>
               </div>
 
-              {/* Payment Options - User chooses */}
               <div className="space-y-3">
                 <p className="text-sm font-medium">Choose Your Payment Option</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -909,7 +908,7 @@ export default function BookingPage() {
                   >
                     <p className="text-sm text-muted-foreground">Pay in Full</p>
                     <p className="font-display text-xl font-bold text-green-600">R{getTotalPrice()}.00</p>
-                    <p className="text-xs text-muted-foreground">✓ No balance due</p>
+                    <p className="text-xs text-muted-foreground"> No balance due</p>
                   </button>
                   <button
                     onClick={() => setPaymentOption('deposit')}
@@ -938,7 +937,7 @@ export default function BookingPage() {
 
               <div className="bg-brand/5 border border-brand/20 rounded-xl p-4">
                 <p className="text-sm text-center text-muted-foreground">
-                   Delivery will be arranged via WhatsApp between you and the Uni-Storage team.
+                  Delivery will be arranged via WhatsApp between you and the Uni-Storage team.
                   We'll coordinate a convenient time for your items to be returned.
                 </p>
               </div>
@@ -986,7 +985,7 @@ export default function BookingPage() {
                 <h2 className="font-display text-3xl font-bold">Booking Confirmed! </h2>
                 <p className="text-muted-foreground mt-2 max-w-sm mx-auto">
                   {paymentOption === 'full' 
-                    ? 'Your storage has been booked and paid in full!'
+                    ? 'Your storage has been booked! Please complete the payment to confirm.'
                     : 'Your storage has been booked. Please make the deposit payment to confirm your booking.'
                   }
                 </p>
@@ -1012,20 +1011,19 @@ export default function BookingPage() {
                 <div className="flex justify-between text-sm border-t pt-2">
                   <span className="text-muted-foreground">Payment</span>
                   <span className={`font-medium ${paymentOption === 'full' ? 'text-green-600' : 'text-amber-600'}`}>
-                    {paymentOption === 'full' ? 'Paid in Full' : `Deposit Due: R${bookingDeposit}.00`}
+                    {paymentOption === 'full' ? `Full Amount: R${bookingTotal}.00` : `Deposit Due: R${bookingDeposit}.00`}
                   </span>
                 </div>
               </div>
 
-              {paymentOption === 'deposit' && (
-                <button
-                  onClick={() => setShowPaymentModal(true)}
-                  className="w-full max-w-sm mx-auto bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
-                >
-                  <Building2 className="size-5" />
-                  View Payment Details
-                </button>
-              )}
+              {/* Show "View Banking Details" button for BOTH payment options */}
+              <button
+                onClick={() => setShowPaymentModal(true)}
+                className="w-full max-w-sm mx-auto bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition flex items-center justify-center gap-2"
+              >
+                <Building2 className="size-5" />
+                View Banking Details
+              </button>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
@@ -1035,7 +1033,7 @@ export default function BookingPage() {
                   Go to Dashboard
                 </button>
                 <button
-                  onClick={() => router.push('/')}
+                  onClick={() => router.push('/dashboard')}
                   className="border border-border px-8 py-3 rounded-lg font-medium hover:bg-muted/50 transition"
                 >
                   Return Home
@@ -1050,18 +1048,19 @@ export default function BookingPage() {
         </div>
       </div>
 
-      {/* Payment Details Modal */}
+      {/* Payment Details Modal - Shows for BOTH payment options */}
       {showPaymentModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div 
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowPaymentModal(false)}
+            onClick={() => !isPaymentConfirmed && setShowPaymentModal(false)}
           />
           
           <div className="relative bg-card rounded-2xl shadow-2xl max-w-2xl w-full p-8 animate-in fade-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
             <button
-              onClick={() => setShowPaymentModal(false)}
+              onClick={() => !isPaymentConfirmed && setShowPaymentModal(false)}
               className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition"
+              disabled={isPaymentConfirmed}
             >
               <X className="size-5" />
             </button>
@@ -1070,11 +1069,11 @@ export default function BookingPage() {
               <div className="size-16 rounded-full bg-blue-500/10 border-2 border-blue-500 flex items-center justify-center mx-auto mb-4">
                 <Building2 className="size-8 text-blue-500" />
               </div>
-              <h2 className="font-display text-2xl font-bold">Payment Details</h2>
+              <h2 className="font-display text-2xl font-bold">Banking Details</h2>
               <p className="text-muted-foreground text-sm mt-1">
                 {paymentOption === 'deposit' 
                   ? `Please make a 50% deposit of R${bookingDeposit}.00 to confirm your booking`
-                  : 'Payment confirmed! Thank you for paying in full.'
+                  : `Please make a full payment of R${bookingTotal}.00 to confirm your booking`
                 }
               </p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -1082,107 +1081,125 @@ export default function BookingPage() {
               </p>
             </div>
 
-            {paymentOption === 'deposit' ? (
-              <>
-                <div className="bg-muted/30 rounded-xl p-6 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-background rounded-lg p-4 border">
-                      <p className="text-xs text-muted-foreground">Bank Name</p>
-                      <p className="font-semibold">{BANK_DETAILS.bankName}</p>
-                    </div>
-                    <div className="bg-background rounded-lg p-4 border">
-                      <p className="text-xs text-muted-foreground">Account Holder</p>
-                      <p className="font-semibold">{BANK_DETAILS.accountName}</p>
-                    </div>
-                    <div className="bg-background rounded-lg p-4 border">
-                      <p className="text-xs text-muted-foreground">Account Number</p>
-                      <div className="flex items-center justify-between">
-                        <p className="font-mono font-semibold">{BANK_DETAILS.accountNumber}</p>
-                        <button
-                          onClick={() => copyToClipboard(BANK_DETAILS.accountNumber, 'account')}
-                          className="text-brand hover:text-brand/80 transition"
-                        >
-                          {copied === 'account' ? <Check className="size-4" /> : <Copy className="size-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="bg-background rounded-lg p-4 border">
-                      <p className="text-xs text-muted-foreground">Branch Code</p>
-                      <div className="flex items-center justify-between">
-                        <p className="font-mono font-semibold">{BANK_DETAILS.branchCode}</p>
-                        <button
-                          onClick={() => copyToClipboard(BANK_DETAILS.branchCode, 'branch')}
-                          className="text-brand hover:text-brand/80 transition"
-                        >
-                          {copied === 'branch' ? <Check className="size-4" /> : <Copy className="size-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="bg-background rounded-lg p-4 border md:col-span-2">
-                      <p className="text-xs text-muted-foreground">Branch Name</p>
-                      <p className="font-semibold">{BANK_DETAILS.branchName}</p>
-                    </div>
-                    <div className="bg-background rounded-lg p-4 border md:col-span-2">
-                      <p className="text-xs text-muted-foreground">Payment Reference</p>
-                      <div className="flex items-center justify-between">
-                        <p className="font-mono font-semibold text-brand">{bookingReference}</p>
-                        <button
-                          onClick={() => copyToClipboard(bookingReference, 'reference')}
-                          className="text-brand hover:text-brand/80 transition"
-                        >
-                          {copied === 'reference' ? <Check className="size-4" /> : <Copy className="size-4" />}
-                        </button>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">Please use this reference when making the payment</p>
-                    </div>
+            {/* Banking Details - Show for BOTH payment options */}
+            <div className="bg-muted/30 rounded-xl p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-background rounded-lg p-4 border">
+                  <p className="text-xs text-muted-foreground">Bank Name</p>
+                  <p className="font-semibold">{BANK_DETAILS.bankName}</p>
+                </div>
+                <div className="bg-background rounded-lg p-4 border">
+                  <p className="text-xs text-muted-foreground">Account Holder</p>
+                  <p className="font-semibold">{BANK_DETAILS.accountName}</p>
+                </div>
+                <div className="bg-background rounded-lg p-4 border">
+                  <p className="text-xs text-muted-foreground">Account Number</p>
+                  <div className="flex items-center justify-between">
+                    <p className="font-mono font-semibold">{BANK_DETAILS.accountNumber}</p>
+                    <button
+                      onClick={() => copyToClipboard(BANK_DETAILS.accountNumber, 'account')}
+                      className="text-brand hover:text-brand/80 transition"
+                    >
+                      {copied === 'account' ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </button>
                   </div>
                 </div>
-
-                <div className="mt-6 space-y-3">
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-                    <p className="font-semibold"> Proof of Payment Required:</p>
-                    <ul className="list-disc list-inside mt-1 space-y-1 text-xs">
-                      <li>Send exactly <span className="font-bold">R{bookingDeposit}.00</span></li>
-                      <li>Use the reference <span className="font-mono font-bold">{bookingReference}</span></li>
-                      <li><strong>Send proof of payment to WhatsApp: 0791170930</strong></li>
-                      <li>Your booking will be confirmed once we verify the payment</li>
-                    </ul>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row gap-3">
+                <div className="bg-background rounded-lg p-4 border">
+                  <p className="text-xs text-muted-foreground">Branch Code</p>
+                  <div className="flex items-center justify-between">
+                    <p className="font-mono font-semibold">{BANK_DETAILS.branchCode}</p>
                     <button
-                      onClick={handlePaymentConfirmed}
-                      className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-2"
+                      onClick={() => copyToClipboard(BANK_DETAILS.branchCode, 'branch')}
+                      className="text-brand hover:text-brand/80 transition"
                     >
+                      {copied === 'branch' ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-background rounded-lg p-4 border md:col-span-2">
+                  <p className="text-xs text-muted-foreground">Branch Name</p>
+                  <p className="font-semibold">{BANK_DETAILS.branchName}</p>
+                </div>
+                <div className="bg-background rounded-lg p-4 border md:col-span-2">
+                  <p className="text-xs text-muted-foreground">Payment Reference</p>
+                  <div className="flex items-center justify-between">
+                    <p className="font-mono font-semibold text-brand">{bookingReference}</p>
+                    <button
+                      onClick={() => copyToClipboard(bookingReference, 'reference')}
+                      className="text-brand hover:text-brand/80 transition"
+                    >
+                      {copied === 'reference' ? <Check className="size-4" /> : <Copy className="size-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Please use this reference when making the payment</p>
+                </div>
+                <div className="bg-background rounded-lg p-4 border md:col-span-2">
+                  <p className="text-xs text-muted-foreground">Amount Due</p>
+                  <p className="font-display text-2xl font-bold text-brand">
+                    {paymentOption === 'deposit' ? `R${bookingDeposit}.00` : `R${bookingTotal}.00`}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {paymentOption === 'deposit' 
+                      ? '50% deposit required to confirm booking'
+                      : 'Full payment required to confirm booking'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+                <p className="font-semibold"> Important Instructions:</p>
+                <ul className="list-disc list-inside mt-1 space-y-1 text-xs">
+                  <li>Send exactly <span className="font-bold">
+                    {paymentOption === 'deposit' ? `R${bookingDeposit}.00` : `R${bookingTotal}.00`}
+                  </span></li>
+                  <li>Use the reference <span className="font-mono font-bold">{bookingReference}</span></li>
+                  <li><strong>Send proof of payment to WhatsApp: {BANK_DETAILS.whatsapp}</strong></li>
+                  <li>Your booking will be confirmed once we verify the payment</li>
+                  {paymentOption === 'deposit' && (
+                    <li>Balance of R{(bookingTotal - bookingDeposit).toFixed(2)} due before delivery</li>
+                  )}
+                </ul>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handlePaymentConfirmed}
+                  disabled={isPaymentConfirmed}
+                  className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isPaymentConfirmed ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Confirming...
+                    </>
+                  ) : (
+                    <>
                       <CheckCircle className="size-5" />
                       I've Made the Payment
-                    </button>
-                    <button
-                      onClick={() => {
-                        const whatsappNumber = BANK_DETAILS.whatsapp
-                        const message = `Hello Uni-Storage, I've made a deposit of R${bookingDeposit} for booking ${bookingReference}`
-                        window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank')
-                      }}
-                      className="flex-1 bg-green-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-600 transition flex items-center justify-center gap-2"
-                    >
-                      <Phone className="size-5" />
-                      Contact via WhatsApp
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-                <CheckCircle className="size-12 text-green-500 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-green-700">Payment Complete!</h3>
-                <p className="text-green-600 mt-2">Your booking is fully paid and confirmed.</p>
-                <p className="text-sm text-green-500 mt-1">Reference: {bookingReference}</p>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    const whatsappNumber = BANK_DETAILS.whatsapp
+                    const amount = paymentOption === 'deposit' ? bookingDeposit : bookingTotal
+                    const message = `Hello Uni-Storage, I've made a payment of R${amount} for booking ${bookingReference}`
+                    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank')
+                  }}
+                  className="flex-1 bg-green-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-600 transition flex items-center justify-center gap-2"
+                >
+                  <Phone className="size-5" />
+                  Send Proof on WhatsApp
+                </button>
               </div>
-            )}
+            </div>
 
             <button
               onClick={() => setShowPaymentModal(false)}
-              className="w-full mt-4 border border-border px-6 py-2.5 rounded-lg font-medium hover:bg-muted/50 transition text-sm"
+              disabled={isPaymentConfirmed}
+              className="w-full mt-4 border border-border px-6 py-2.5 rounded-lg font-medium hover:bg-muted/50 transition text-sm disabled:opacity-50"
             >
               Close
             </button>

@@ -22,7 +22,10 @@ import {
   Trash2,
   Edit,
   MapPin,
-  Home
+  Home,
+  Phone,
+  Mail,
+  Copy
 } from 'lucide-react'
 
 interface Booking {
@@ -41,8 +44,8 @@ interface Booking {
   created_at: string
   user_name?: string
   user_email?: string
+  user_phone?: string
   items?: string[]
-  // Address fields
   residence_name?: string
   room_number?: string
   address_line?: string
@@ -59,6 +62,29 @@ interface Profile {
   created_at: string
   email?: string
   active_bookings?: number
+}
+
+// Helper function to format phone numbers for tel: and WhatsApp links
+function formatPhoneNumber(phone: string): string {
+  // Remove any non-numeric characters
+  let cleaned = phone.replace(/\D/g, '')
+  
+  // If the number starts with 0, replace with 27
+  if (cleaned.startsWith('0')) {
+    cleaned = '27' + cleaned.substring(1)
+  }
+  
+  // If the number starts with 27, add + prefix
+  if (cleaned.startsWith('27')) {
+    return '+' + cleaned
+  }
+  
+  // If the number doesn't have a country code, add +27
+  if (cleaned.length <= 10) {
+    return '+27' + cleaned
+  }
+  
+  return '+' + cleaned
 }
 
 export default function AdminPage() {
@@ -87,7 +113,14 @@ export default function AdminPage() {
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null)
   const router = useRouter()
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text)
+    setCopied(field)
+    setTimeout(() => setCopied(null), 2000)
+  }
 
   // Load admin data
   const loadAdminData = useCallback(async () => {
@@ -141,7 +174,7 @@ export default function AdminPage() {
 
       setUser(user)
 
-      // Fetch ONLY active bookings (exclude CANCELLED) - now including address fields
+      // Fetch ONLY active bookings (exclude CANCELLED)
       const { data: bookingsData, error: bookingsError } = await supabase
         .from('bookings')
         .select('*')
@@ -150,21 +183,23 @@ export default function AdminPage() {
 
       if (bookingsError) throw bookingsError
 
-      // Fetch user profiles for all bookings
+      // Fetch user profiles for all bookings with phone numbers
       const bookingsWithDetails = await Promise.all(
         (bookingsData || []).map(async (booking) => {
           let userName = 'Unknown'
-          let userEmail = 'Unknown'
+          let userEmail = ''
+          let userPhone = ''
           
           if (booking.user_id) {
             const { data: userProfile } = await supabase
               .from('profiles')
-              .select('full_name')
+              .select('full_name, phone_number')
               .eq('id', booking.user_id)
               .single()
             
             if (userProfile) {
               userName = userProfile.full_name
+              userPhone = userProfile.phone_number || ''
             }
             
             try {
@@ -191,6 +226,7 @@ export default function AdminPage() {
             ...booking,
             user_name: userName,
             user_email: userEmail,
+            user_phone: userPhone,
             items: items?.map(i => i.item_type) || []
           }
         })
@@ -198,7 +234,7 @@ export default function AdminPage() {
 
       setBookings(bookingsWithDetails)
 
-      // Fetch ALL profiles but calculate active bookings count
+      // Fetch ALL profiles with phone numbers
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('*')
@@ -206,7 +242,7 @@ export default function AdminPage() {
 
       const profilesWithDetails = await Promise.all(
         (profilesData || []).map(async (profile) => {
-          let email = 'Unknown'
+          let email = ''
           try {
             const { data: authUser } = await supabase
               .from('auth.users')
@@ -393,6 +429,7 @@ export default function AdminPage() {
   const filteredBookings = bookings.filter(booking => {
     const matchesSearch = booking.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          booking.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         booking.user_phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          booking.id.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || booking.status === filterStatus
     return matchesSearch && matchesStatus
@@ -525,7 +562,7 @@ export default function AdminPage() {
                 : 'hover:bg-muted/50'
             }`}
           >
-             Active Bookings
+             Bookings
           </button>
           <button
             onClick={() => setActiveTab('students')}
@@ -535,7 +572,7 @@ export default function AdminPage() {
                 : 'hover:bg-muted/50'
             }`}
           >
-             Active Students
+            Students
           </button>
         </div>
 
@@ -547,7 +584,7 @@ export default function AdminPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search by name, email, or booking ID..."
+                  placeholder="Search by name, email, phone, or booking ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-brand/50"
@@ -571,6 +608,7 @@ export default function AdminPage() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Student</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Contact</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Items</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Collection</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
@@ -581,7 +619,7 @@ export default function AdminPage() {
                 <tbody>
                   {filteredBookings.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <td colSpan={7} className="text-center py-8 text-muted-foreground">
                         No active bookings found
                       </td>
                     </tr>
@@ -594,9 +632,26 @@ export default function AdminPage() {
                       return (
                         <tr key={booking.id} className="border-b hover:bg-muted/30 transition">
                           <td className="py-3 px-4">
-                            <div>
-                              <p className="font-medium">{booking.user_name}</p>
-                              <p className="text-xs text-muted-foreground">{booking.user_email}</p>
+                            <p className="font-medium">{booking.user_name}</p>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="space-y-1">
+                              {booking.user_email && booking.user_email !== '' && (
+                                <div className="flex items-center gap-1">
+                                  <Mail className="size-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">{booking.user_email}</span>
+                                </div>
+                              )}
+                              {booking.user_phone && booking.user_phone !== '' && (
+                                <div className="flex items-center gap-1">
+                                  <Phone className="size-3 text-muted-foreground" />
+                                  <span className="text-xs">{booking.user_phone}</span>
+                                </div>
+                              )}
+                              {(!booking.user_email || booking.user_email === '') && 
+                               (!booking.user_phone || booking.user_phone === '') && (
+                                <span className="text-xs text-muted-foreground">No contact info</span>
+                              )}
                             </div>
                           </td>
                           <td className="py-3 px-4">
@@ -638,10 +693,17 @@ export default function AdminPage() {
                                 setSelectedBooking(booking)
                                 setShowBookingModal(true)
                               }}
-                              className="text-brand hover:underline text-sm"
+                              className="text-brand hover:underline text-sm flex items-center gap-1 justify-end"
                               disabled={isUpdatingThis}
                             >
-                              {isUpdatingThis ? 'Updating...' : 'Manage'}
+                              {isUpdatingThis ? (
+                                'Updating...'
+                              ) : (
+                                <>
+                                  Manage
+                                  <Edit className="size-3" />
+                                </>
+                              )}
                             </button>
                           </td>
                         </tr>
@@ -664,7 +726,7 @@ export default function AdminPage() {
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Name</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Student Number</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Campus</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Phone</th>
+                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Contact</th>
                     <th className="text-left py-3 px-4 font-medium text-muted-foreground">Active Bookings</th>
                   </tr>
                 </thead>
@@ -682,7 +744,36 @@ export default function AdminPage() {
                           <td className="py-3 px-4 font-medium">{profile.full_name}</td>
                           <td className="py-3 px-4 text-muted-foreground">{profile.student_number}</td>
                           <td className="py-3 px-4">{profile.campus === 'UMP' ? 'University of Mpumalanga' : 'TUT Nelspruit'}</td>
-                          <td className="py-3 px-4 text-muted-foreground">{profile.phone_number}</td>
+                          <td className="py-3 px-4">
+                            <div className="space-y-1">
+                              {profile.email && profile.email !== '' && (
+                                <div className="flex items-center gap-1">
+                                  <Mail className="size-3 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground truncate max-w-[150px]">{profile.email}</span>
+                                </div>
+                              )}
+                              {profile.phone_number && profile.phone_number !== '' && profile.phone_number !== 'Not provided' && (
+                                <div className="flex items-center gap-1">
+                                  <Phone className="size-3 text-muted-foreground" />
+                                  <span className="text-xs">{profile.phone_number}</span>
+                                  <button
+                                    onClick={() => copyToClipboard(profile.phone_number!, 'phone')}
+                                    className="text-brand hover:text-brand/80 transition"
+                                  >
+                                    {copied === 'phone' ? (
+                                      <CheckCircle className="size-3 text-green-500" />
+                                    ) : (
+                                      <Copy className="size-3" />
+                                    )}
+                                  </button>
+                                </div>
+                              )}
+                              {(!profile.email || profile.email === '') && 
+                               (!profile.phone_number || profile.phone_number === '' || profile.phone_number === 'Not provided') && (
+                                <span className="text-xs text-muted-foreground">No contact info</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="py-3 px-4">
                             <span className="inline-flex items-center gap-1 bg-brand/10 text-brand px-2 py-1 rounded-full text-xs font-medium">
                               {profile.active_bookings} active
@@ -791,7 +882,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Booking Management Modal with Address */}
+      {/* Booking Management Modal with Address, Phone, Email */}
       {showBookingModal && selectedBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowBookingModal(false)} />
@@ -807,10 +898,55 @@ export default function AdminPage() {
             <h2 className="font-display text-2xl font-bold mb-4">Booking Details</h2>
             
             <div className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Student</p>
-                <p className="font-medium">{selectedBooking.user_name}</p>
-                <p className="text-sm text-muted-foreground">{selectedBooking.user_email}</p>
+              {/* Student Info with Phone & Email */}
+              <div className="bg-muted/30 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="size-4 text-brand" />
+                  <p className="text-sm font-medium">Student Information</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm">
+                    <span className="font-medium">Name:</span> {selectedBooking.user_name}
+                  </p>
+                  {selectedBooking.user_email && selectedBooking.user_email !== '' && (
+                    <div className="flex items-center gap-1 text-sm">
+                      <Mail className="size-3 text-muted-foreground" />
+                      <span className="font-medium">Email:</span>
+                      <span className="text-muted-foreground">{selectedBooking.user_email}</span>
+                      <button
+                        onClick={() => copyToClipboard(selectedBooking.user_email!, 'email')}
+                        className="text-brand hover:text-brand/80 transition ml-1"
+                      >
+                        {copied === 'email' ? (
+                          <CheckCircle className="size-3 text-green-500" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                  {selectedBooking.user_phone && selectedBooking.user_phone !== '' && (
+                    <div className="flex items-center gap-1 text-sm">
+                      <Phone className="size-3 text-muted-foreground" />
+                      <span className="font-medium">Phone:</span>
+                      <span className="text-muted-foreground">{selectedBooking.user_phone}</span>
+                      <button
+                        onClick={() => copyToClipboard(selectedBooking.user_phone!, 'phone')}
+                        className="text-brand hover:text-brand/80 transition ml-1"
+                      >
+                        {copied === 'phone' ? (
+                          <CheckCircle className="size-3 text-green-500" />
+                        ) : (
+                          <Copy className="size-3" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                  {(!selectedBooking.user_email || selectedBooking.user_email === '') && 
+                   (!selectedBooking.user_phone || selectedBooking.user_phone === '') && (
+                    <p className="text-sm text-muted-foreground">No contact information available</p>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -823,7 +959,7 @@ export default function AdminPage() {
                 <p className="font-medium">{new Date(selectedBooking.collection_date).toLocaleDateString()}</p>
               </div>
 
-              {/* Address Section - Added */}
+              {/* Address Section */}
               <div className="bg-muted/30 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <MapPin className="size-4 text-brand" />
@@ -887,6 +1023,44 @@ export default function AdminPage() {
                 </div>
               </div>
 
+              {/* Quick Contact Buttons - FIXED with proper phone formatting */}
+              {(selectedBooking.user_phone || selectedBooking.user_email) && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium mb-2">Quick Contact</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {selectedBooking.user_phone && selectedBooking.user_phone !== '' && (
+                      <>
+                        <a
+                          href={`tel:${formatPhoneNumber(selectedBooking.user_phone)}`}
+                          className="flex-1 min-w-[100px] bg-green-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition flex items-center justify-center gap-2"
+                        >
+                          <Phone className="size-4" />
+                          Call
+                        </a>
+                        <a
+                          href={`https://wa.me/${formatPhoneNumber(selectedBooking.user_phone).replace('+', '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 min-w-[100px] bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition flex items-center justify-center gap-2"
+                        >
+                          <Phone className="size-4" />
+                          WhatsApp
+                        </a>
+                      </>
+                    )}
+                    {selectedBooking.user_email && selectedBooking.user_email !== '' && (
+                      <a
+                        href={`mailto:${selectedBooking.user_email}`}
+                        className="flex-1 min-w-[100px] bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 transition flex items-center justify-center gap-2"
+                      >
+                        <Mail className="size-4" />
+                        Email
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="border-t pt-4">
                 <p className="text-sm font-medium mb-2">Update Status</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -912,15 +1086,16 @@ export default function AdminPage() {
               </div>
 
               <button
-                onClick={() => updateBookingStatus(selectedBooking.id, 'CANCELLED')}
+                onClick={() => {
+                  setBookingToDelete(selectedBooking.id)
+                  setShowDeleteModal(true)
+                  setShowBookingModal(false)
+                }}
                 disabled={isUpdating}
-                className="w-full bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition mt-4 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition mt-2 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {isUpdating ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  'Cancel Booking'
-                )}
+                <Trash2 className="size-4" />
+                Delete Booking
               </button>
             </div>
           </div>
