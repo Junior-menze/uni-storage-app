@@ -90,7 +90,7 @@ export function Navbar() {
               
               {user ? (
                 <>
-                  <Link href="/dashboard" className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition">
+                  <Link href={user ? "/booking" : "/auth"}  className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-lg transition">
                     Dashboard
                   </Link>
                   <button
